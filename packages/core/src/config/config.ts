@@ -139,6 +139,7 @@ export interface ConfigParameters {
   fileDiscoveryService?: FileDiscoveryService;
   bugCommand?: BugCommandSettings;
   model: string;
+  appendSystemPrompt?: string;
   extensionContextFilePaths?: string[];
   maxSessionTurns?: number;
   listExtensions?: boolean;
@@ -181,6 +182,7 @@ export class Config {
   private readonly cwd: string;
   private readonly bugCommand: BugCommandSettings | undefined;
   private readonly model: string;
+  private readonly appendSystemPrompt: string | undefined;
   private readonly extensionContextFilePaths: string[];
   private readonly noBrowser: boolean;
   private modelSwitchedDuringSession: boolean = false;
@@ -229,6 +231,7 @@ export class Config {
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
     this.model = params.model;
+    this.appendSystemPrompt = params.appendSystemPrompt;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
     this.maxSessionTurns = params.maxSessionTurns ?? -1;
     this.listExtensions = params.listExtensions ?? false;
@@ -250,6 +253,10 @@ export class Config {
     } else {
       console.log('Data collection is disabled.');
     }
+  }
+
+  getAppendSystemPrompt(): string | undefined {
+    return this.appendSystemPrompt;
   }
 
   async initialize(): Promise<void> {

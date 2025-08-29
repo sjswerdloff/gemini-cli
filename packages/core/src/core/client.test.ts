@@ -353,6 +353,74 @@ describe('Gemini Client (client.ts)', () => {
         contents,
       });
     });
+
+    it('should include appended system instruction when configured', async () => {
+      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const generationConfig = { temperature: 0.2 };
+      const abortSignal = new AbortController().signal;
+
+      // Make the system prompt builder return a deterministic base
+      vi.mocked(getCoreSystemPrompt).mockReturnValue('BASE_PROMPT');
+
+      // Re-mock Config to include appendSystemPrompt and create a fresh client
+      const MockedConfig = vi.mocked(Config, true);
+      const fileService = new FileDiscoveryService('/test/dir');
+      const contentGeneratorConfig = {
+        model: 'test-model',
+        apiKey: 'test-key',
+        vertexai: false,
+        authType: AuthType.USE_GEMINI,
+      };
+      const mockToolRegistry = {
+        getFunctionDeclarations: vi.fn().mockReturnValue([]),
+        getTool: vi.fn().mockReturnValue(null),
+      };
+      MockedConfig.mockImplementationOnce(() => {
+        const mock = {
+          getContentGeneratorConfig: vi
+            .fn()
+            .mockReturnValue(contentGeneratorConfig),
+          getToolRegistry: vi.fn().mockResolvedValue(mockToolRegistry),
+          getModel: vi.fn().mockReturnValue('test-model'),
+          getEmbeddingModel: vi.fn().mockReturnValue('test-embedding-model'),
+          getApiKey: vi.fn().mockReturnValue('test-key'),
+          getVertexAI: vi.fn().mockReturnValue(false),
+          getUserAgent: vi.fn().mockReturnValue('test-agent'),
+          getUserMemory: vi.fn().mockReturnValue(''),
+          getFullContext: vi.fn().mockReturnValue(false),
+          getSessionId: vi.fn().mockReturnValue('test-session-id-2'),
+          getProxy: vi.fn().mockReturnValue(undefined),
+          getWorkingDir: vi.fn().mockReturnValue('/test/dir'),
+          getFileService: vi.fn().mockReturnValue(fileService),
+          getMaxSessionTurns: vi.fn().mockReturnValue(0),
+          getQuotaErrorOccurred: vi.fn().mockReturnValue(false),
+          setQuotaErrorOccurred: vi.fn(),
+          getNoBrowser: vi.fn().mockReturnValue(false),
+          getAppendSystemPrompt: vi.fn().mockReturnValue('APPEND_ME'),
+        };
+        return mock as unknown as Config;
+      });
+
+      const mockConfig2 = new Config({} as never);
+      const client2 = new GeminiClient(mockConfig2);
+
+      // Prepare a lightweight content generator on the new client
+      const mockGenerator: Partial<ContentGenerator> = {
+        countTokens: vi.fn().mockResolvedValue({ totalTokens: 1 }),
+        generateContent: mockGenerateContentFn,
+      };
+      // Override for tests only
+      client2['contentGenerator'] = mockGenerator as ContentGenerator;
+      await client2.initialize(contentGeneratorConfig);
+
+      await client2.generateContent(contents, generationConfig, abortSignal);
+
+      expect(mockGenerateContentFn).toHaveBeenCalled();
+      const callArg = mockGenerateContentFn.mock.calls.at(-1)?.[0];
+      expect(callArg?.config?.systemInstruction).toBe(
+        'BASE_PROMPT\n\n---\n\nAPPEND_ME',
+      );
+    });
   });
 
   describe('generateJson', () => {

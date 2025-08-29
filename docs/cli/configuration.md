@@ -333,6 +333,27 @@ Arguments passed directly when running the CLI can override other configurations
 - **`--version`**:
   - Displays the version of the CLI.
 
+### Appending to the System Instruction
+
+- **`--append-system-prompt <text>`**:
+  - Appends the provided text to the end of the system instruction sent to the model.
+  - Use this to add temporary guidance (e.g., formatting or policy notes) without editing your `GEMINI.md` files.
+
+- **`--append-system-prompt-file <path>`**:
+  - Reads the file at `<path>` (UTF-8) and appends its contents to the system instruction.
+  - Useful for larger, versioned instructions checked into your repo.
+
+- These two flags are mutually exclusive; pass only one per invocation.
+
+Ordering and interaction:
+- The final system instruction is composed in this order:
+  1. Base system prompt (or `.gemini/system.md` when `GEMINI_SYSTEM_MD` is set)
+  2. Hierarchical memory from discovered `GEMINI.md` files
+  3. Appended text from `--append-system-prompt` or `--append-system-prompt-file`
+
+Implementation detail:
+- The CLI uses the Gemini API `system_instruction` field for this prompt content.
+
 ## Context Files (Hierarchical Instructional Context)
 
 While not strictly configuration for the CLI's _behavior_, context files (defaulting to `GEMINI.md` but configurable via the `contextFileName` setting) are crucial for configuring the _instructional context_ (also referred to as "memory") provided to the Gemini model. This powerful feature allows you to give project-specific instructions, coding style guides, or any relevant background information to the AI, making its responses more tailored and accurate to your needs. The CLI includes UI elements, such as an indicator in the footer showing the number of loaded context files, to keep you informed about the active context.

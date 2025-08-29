@@ -7,6 +7,8 @@
 import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 import process from 'node:process';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   Config,
   loadServerHierarchicalMemory,
@@ -41,6 +43,8 @@ export interface CliArgs {
   debug: boolean | undefined;
   prompt: string | undefined;
   promptInteractive: string | undefined;
+  appendSystemPrompt: string | undefined;
+  appendSystemPromptFile: string | undefined;
   allFiles: boolean | undefined;
   all_files: boolean | undefined;
   showMemoryUsage: boolean | undefined;
@@ -73,6 +77,16 @@ export async function parseArguments(): Promise<CliArgs> {
       alias: 'p',
       type: 'string',
       description: 'Prompt. Appended to input on stdin (if any).',
+    })
+    .option('append-system-prompt', {
+      type: 'string',
+      description:
+        'Appends text to the end of the system instruction sent to the model.',
+    })
+    .option('append-system-prompt-file', {
+      type: 'string',
+      description:
+        'Path to a file whose contents will be appended to the system instruction.',
     })
     .option('prompt-interactive', {
       alias: 'i',
@@ -187,6 +201,11 @@ export async function parseArguments(): Promise<CliArgs> {
           'Cannot use both --prompt (-p) and --prompt-interactive (-i) together',
         );
       }
+      if (argv.appendSystemPrompt && argv.appendSystemPromptFile) {
+        throw new Error(
+          'Cannot use both --append-system-prompt and --append-system-prompt-file together',
+        );
+      }
       return true;
     });
 
@@ -275,6 +294,21 @@ export async function loadCliConfig(
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 
+  // Resolve appended system prompt text from flag or file
+  let appendSystemPrompt: string | undefined = undefined;
+  if (argv.appendSystemPromptFile) {
+    const filePath = path.resolve(process.cwd(), argv.appendSystemPromptFile);
+    try {
+      appendSystemPrompt = fs.readFileSync(filePath, 'utf8');
+    } catch (e) {
+      throw new Error(
+        `Failed to read --append-system-prompt-file at "${filePath}": ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  } else if (argv.appendSystemPrompt) {
+    appendSystemPrompt = argv.appendSystemPrompt;
+  }
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -325,6 +359,7 @@ export async function loadCliConfig(
     fileDiscoveryService: fileService,
     bugCommand: settings.bugCommand,
     model: argv.model!,
+    appendSystemPrompt,
     extensionContextFilePaths,
     maxSessionTurns: settings.maxSessionTurns ?? -1,
     listExtensions: argv.listExtensions || false,

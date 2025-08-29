@@ -232,7 +232,12 @@ export class GeminiClient {
     ];
     try {
       const userMemory = this.config.getUserMemory();
-      const systemInstruction = getCoreSystemPrompt(userMemory);
+      const basePrompt = getCoreSystemPrompt(userMemory);
+      const appendedPrompt = this.config.getAppendSystemPrompt?.();
+      const systemInstruction =
+        appendedPrompt && appendedPrompt.trim().length > 0
+          ? `${basePrompt}\n\n---\n\n${appendedPrompt.trim()}`
+          : basePrompt;
       const generateContentConfigWithThinking = isThinkingSupported(
         this.config.getModel(),
       )
@@ -340,7 +345,12 @@ export class GeminiClient {
       model || this.config.getModel() || DEFAULT_GEMINI_FLASH_MODEL;
     try {
       const userMemory = this.config.getUserMemory();
-      const systemInstruction = getCoreSystemPrompt(userMemory);
+      const basePrompt = getCoreSystemPrompt(userMemory);
+      const appendedPrompt = this.config.getAppendSystemPrompt?.();
+      const systemInstruction =
+        appendedPrompt && appendedPrompt.trim().length > 0
+          ? `${basePrompt}\n\n---\n\n${appendedPrompt.trim()}`
+          : basePrompt;
       const requestConfig = {
         abortSignal,
         ...this.generateContentConfig,
@@ -433,7 +443,12 @@ export class GeminiClient {
 
     try {
       const userMemory = this.config.getUserMemory();
-      const systemInstruction = getCoreSystemPrompt(userMemory);
+      const basePrompt = getCoreSystemPrompt(userMemory);
+      const appendedPrompt = this.config.getAppendSystemPrompt?.();
+      const systemInstruction =
+        appendedPrompt && appendedPrompt.trim().length > 0
+          ? `${basePrompt}\n\n---\n\n${appendedPrompt.trim()}`
+          : basePrompt;
 
       const requestConfig = {
         abortSignal,
