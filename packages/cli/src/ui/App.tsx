@@ -535,9 +535,13 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const logger = useLogger();
   const [userMessages, setUserMessages] = useState<string[]>([]);
 
+  // Only recompute user message suggestions when a new USER message arrives
+  const lastHistoryItem = history.length ? history[history.length - 1] : null;
   useEffect(() => {
+    if (!logger) return;
+    if (!lastHistoryItem || lastHistoryItem.type !== 'user') return;
     const fetchUserMessages = async () => {
-      const pastMessagesRaw = (await logger?.getPreviousUserMessages()) || []; // Newest first
+      const pastMessagesRaw = (await logger.getPreviousUserMessages()) || [];
 
       const currentSessionUserMessages = history
         .filter(
@@ -549,27 +553,24 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
         .map((item) => item.text)
         .reverse(); // Newest first, to match pastMessagesRaw sorting
 
-      // Combine, with current session messages being more recent
       const combinedMessages = [
         ...currentSessionUserMessages,
         ...pastMessagesRaw,
       ];
 
-      // Deduplicate consecutive identical messages from the combined list (still newest first)
       const deduplicatedMessages: string[] = [];
       if (combinedMessages.length > 0) {
-        deduplicatedMessages.push(combinedMessages[0]); // Add the newest one unconditionally
+        deduplicatedMessages.push(combinedMessages[0]);
         for (let i = 1; i < combinedMessages.length; i++) {
           if (combinedMessages[i] !== combinedMessages[i - 1]) {
             deduplicatedMessages.push(combinedMessages[i]);
           }
         }
       }
-      // Reverse to oldest first for useInputHistory
       setUserMessages(deduplicatedMessages.reverse());
     };
     fetchUserMessages();
-  }, [history, logger]);
+  }, [logger, lastHistoryItem]);
 
   const isInputActive = streamingState === StreamingState.Idle && !initError;
 
@@ -689,6 +690,90 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   // Arbitrary threshold to ensure that items in the static area are large
   // enough but not too large to make the terminal hard to use.
   const staticAreaMaxItemHeight = Math.max(terminalHeight * 4, 100);
+
+  // Keep already-rendered Static items and append only new ones when history grows.
+  const staticItemsRef = useRef<React.ReactNode[]>([]);
+  const lastHistoryLengthRef = useRef<number>(0);
+  const lastDepsRef = useRef<{
+    terminalWidth: number;
+    nightly: boolean;
+    hideTips: boolean;
+    mainAreaWidth: number;
+    staticAreaMaxItemHeight: number;
+    config: Config;
+    version: string;
+  } | null>(null);
+
+  const headerNode = useMemo(
+    () => (
+      <Box flexDirection="column" key="header">
+        <Header terminalWidth={terminalWidth} version={version} nightly={nightly} />
+        {!settings.merged.hideTips && <Tips config={config} />}
+      </Box>
+    ),
+    [terminalWidth, version, nightly, settings.merged.hideTips, config],
+  );
+
+  const currentStaticDeps = {
+    terminalWidth,
+    nightly,
+    hideTips: settings.merged.hideTips ?? false,
+    mainAreaWidth,
+    staticAreaMaxItemHeight,
+    config,
+    version,
+  };
+
+  const staticDepsChanged = useMemo(() => {
+    const prev = lastDepsRef.current;
+    return (
+      !prev ||
+      prev.terminalWidth !== currentStaticDeps.terminalWidth ||
+      prev.nightly !== currentStaticDeps.nightly ||
+      prev.hideTips !== currentStaticDeps.hideTips ||
+      prev.mainAreaWidth !== currentStaticDeps.mainAreaWidth ||
+      prev.staticAreaMaxItemHeight !== currentStaticDeps.staticAreaMaxItemHeight ||
+      prev.config !== currentStaticDeps.config ||
+      prev.version !== currentStaticDeps.version
+    );
+  }, [currentStaticDeps]);
+
+  // Build or append Static items synchronously during render pass so
+  // the latest history is visible in the same render.
+  if (staticDepsChanged || history.length < lastHistoryLengthRef.current) {
+    staticItemsRef.current = [
+      headerNode,
+      ...history.map((h) => (
+        <HistoryItemDisplay
+          terminalWidth={mainAreaWidth}
+          availableTerminalHeight={staticAreaMaxItemHeight}
+          key={h.id}
+          item={h}
+          isPending={false}
+          config={config}
+        />
+      )),
+    ];
+    lastHistoryLengthRef.current = history.length;
+    lastDepsRef.current = currentStaticDeps;
+  } else if (history.length > lastHistoryLengthRef.current) {
+    const start = lastHistoryLengthRef.current;
+    for (let i = start; i < history.length; i++) {
+      const h = history[i];
+      staticItemsRef.current.push(
+        <HistoryItemDisplay
+          terminalWidth={mainAreaWidth}
+          availableTerminalHeight={staticAreaMaxItemHeight}
+          key={h.id}
+          item={h}
+          isPending={false}
+          config={config}
+        />,
+      );
+    }
+    lastHistoryLengthRef.current = history.length;
+  }
+
   return (
     <StreamingContext.Provider value={streamingState}>
       <Box flexDirection="column" marginBottom={1} width="90%">
@@ -706,29 +791,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
          * content is set it'll flush content to the terminal and move the area which it's "clearing"
          * down a notch. Without Static the area which gets erased and redrawn continuously grows.
          */}
-        <Static
-          key={staticKey}
-          items={[
-            <Box flexDirection="column" key="header">
-              <Header
-                terminalWidth={terminalWidth}
-                version={version}
-                nightly={nightly}
-              />
-              {!settings.merged.hideTips && <Tips config={config} />}
-            </Box>,
-            ...history.map((h) => (
-              <HistoryItemDisplay
-                terminalWidth={mainAreaWidth}
-                availableTerminalHeight={staticAreaMaxItemHeight}
-                key={h.id}
-                item={h}
-                isPending={false}
-                config={config}
-              />
-            )),
-          ]}
-        >
+        <Static key={staticKey} items={staticItemsRef.current}>
           {(item) => item}
         </Static>
         <OverflowProvider>
