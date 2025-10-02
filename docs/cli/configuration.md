@@ -354,6 +354,25 @@ Ordering and interaction:
 Implementation detail:
 - The CLI uses the Gemini API `system_instruction` field for this prompt content.
 
+### Compression Instruction Override
+
+- `--alternative-compression-instruction-file <path>`:
+  - Reads the file at `<path>` (UTF-8) and uses its contents as the dedicated system instruction when compressing chat history (context summarization).
+  - Only applies during compression; normal turns still use the standard system instruction flow documented above.
+  - If not provided, the CLI uses its built‑in compression prompt.
+
+Behavior and precedence:
+- This flag overrides the built‑in compression prompt for the summarization turn only.
+- It does not combine with `--append-system-prompt[-file]`; those options still apply to normal turns, not the compression step.
+
+Example:
+- `gemini --alternative-compression-instruction-file ./CustomizedCompressionInstruction.txt`
+
+Recommendations:
+- Keep the file concise to conserve tokens.
+- Include clear “what to keep vs. drop” rules and a simple scaffold for the compressor to fill.
+- Avoid secrets or credentials.
+
 ## Context Files (Hierarchical Instructional Context)
 
 While not strictly configuration for the CLI's _behavior_, context files (defaulting to `GEMINI.md` but configurable via the `contextFileName` setting) are crucial for configuring the _instructional context_ (also referred to as "memory") provided to the Gemini model. This powerful feature allows you to give project-specific instructions, coding style guides, or any relevant background information to the AI, making its responses more tailored and accurate to your needs. The CLI includes UI elements, such as an indicator in the footer showing the number of loaded context files, to keep you informed about the active context.

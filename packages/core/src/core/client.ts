@@ -572,13 +572,17 @@ export class GeminiClient {
 
     this.getChat().setHistory(historyToCompress);
 
+    const compressionInstruction =
+      this.config.getAlternativeCompressionInstruction?.() ||
+      getCompressionPrompt();
+
     const { text: summary } = await this.getChat().sendMessage(
       {
         message: {
           text: 'First, reason in your scratchpad. Then, generate the <state_snapshot>.',
         },
         config: {
-          systemInstruction: { text: getCompressionPrompt() },
+          systemInstruction: { text: compressionInstruction },
         },
       },
       prompt_id,

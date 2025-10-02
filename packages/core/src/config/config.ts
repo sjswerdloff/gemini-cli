@@ -140,6 +140,7 @@ export interface ConfigParameters {
   bugCommand?: BugCommandSettings;
   model: string;
   appendSystemPrompt?: string;
+  alternativeCompressionInstruction?: string;
   extensionContextFilePaths?: string[];
   maxSessionTurns?: number;
   listExtensions?: boolean;
@@ -183,6 +184,7 @@ export class Config {
   private readonly bugCommand: BugCommandSettings | undefined;
   private readonly model: string;
   private readonly appendSystemPrompt: string | undefined;
+  private readonly alternativeCompressionInstruction: string | undefined;
   private readonly extensionContextFilePaths: string[];
   private readonly noBrowser: boolean;
   private modelSwitchedDuringSession: boolean = false;
@@ -232,6 +234,8 @@ export class Config {
     this.bugCommand = params.bugCommand;
     this.model = params.model;
     this.appendSystemPrompt = params.appendSystemPrompt;
+    this.alternativeCompressionInstruction =
+      params.alternativeCompressionInstruction;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
     this.maxSessionTurns = params.maxSessionTurns ?? -1;
     this.listExtensions = params.listExtensions ?? false;
@@ -257,6 +261,10 @@ export class Config {
 
   getAppendSystemPrompt(): string | undefined {
     return this.appendSystemPrompt;
+  }
+
+  getAlternativeCompressionInstruction(): string | undefined {
+    return this.alternativeCompressionInstruction;
   }
 
   async initialize(): Promise<void> {

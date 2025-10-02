@@ -45,6 +45,7 @@ export interface CliArgs {
   promptInteractive: string | undefined;
   appendSystemPrompt: string | undefined;
   appendSystemPromptFile: string | undefined;
+  alternativeCompressionInstructionFile: string | undefined;
   allFiles: boolean | undefined;
   all_files: boolean | undefined;
   showMemoryUsage: boolean | undefined;
@@ -87,6 +88,11 @@ export async function parseArguments(): Promise<CliArgs> {
       type: 'string',
       description:
         'Path to a file whose contents will be appended to the system instruction.',
+    })
+    .option('alternative-compression-instruction-file', {
+      type: 'string',
+      description:
+        'Path to a file whose contents will be used as the compression system instruction when summarizing chat history.',
     })
     .option('prompt-interactive', {
       alias: 'i',
@@ -309,6 +315,24 @@ export async function loadCliConfig(
     appendSystemPrompt = argv.appendSystemPrompt;
   }
 
+  // Resolve alternative compression instruction text from file
+  let alternativeCompressionInstruction: string | undefined = undefined;
+  if (argv.alternativeCompressionInstructionFile) {
+    const filePath = path.resolve(
+      process.cwd(),
+      argv.alternativeCompressionInstructionFile,
+    );
+    try {
+      alternativeCompressionInstruction = fs.readFileSync(filePath, 'utf8');
+    } catch (e) {
+      throw new Error(
+        `Failed to read --alternative-compression-instruction-file at "${filePath}": ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+  }
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -360,6 +384,7 @@ export async function loadCliConfig(
     bugCommand: settings.bugCommand,
     model: argv.model!,
     appendSystemPrompt,
+    alternativeCompressionInstruction,
     extensionContextFilePaths,
     maxSessionTurns: settings.maxSessionTurns ?? -1,
     listExtensions: argv.listExtensions || false,
